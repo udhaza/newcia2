@@ -2,83 +2,52 @@ pipeline {
     agent any
 
     environment {
-        AWS_REGION = 'ap-south-1'
-        AWS_ACCOUNT_ID = '956301286834'  // e.g. 123456789012
-        REPO_NAME = 'newcia2'
-        IMAGE_URI = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${REPO_NAME}"
+        APP_NAME = 'newcia2'
+        IMAGE_TAG = 'v1'
     }
 
     stages {
         stage('Checkout Code') {
             steps {
-                echo '📦 Fetching source code from GitHub...'
-                checkout scm
-            }
-        }
-
-        stage('Install Dependencies') {
-            steps {
-                echo '⚙️ Installing dependencies...'
-                sh 'npm install'
+                git branch: 'main', url: 'https://github.com/udhaza/newcia2.git'
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                script {
-                    echo '🐳 Building Docker image...'
-                    sh "docker build -t ${IMAGE_URI}:${BUILD_NUMBER} ."
-                }
+                sh '''
+                    echo "Building Docker image..."
+                    docker build -t $APP_NAME:$IMAGE_TAG .
+                '''
             }
         }
 
-        stage('Login to AWS ECR') {
+        stage('Stop Old Container') {
             steps {
-                script {
-                    echo '🔐 Logging into AWS ECR...'
-                    sh """
-                        aws ecr get-login-password --region ${AWS_REGION} | \
-                        docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
-                    """
-                }
+                sh '''
+                    echo "Stopping old container if running..."
+                    docker stop $APP_NAME || true
+                    docker rm $APP_NAME || true
+                '''
             }
         }
 
-        stage('Push Image to ECR') {
+        stage('Run New Container') {
             steps {
-                script {
-                    echo '⬆️ Pushing Docker image to AWS ECR...'
-                    sh """
-                        docker tag ${IMAGE_URI}:${BUILD_NUMBER} ${IMAGE_URI}:latest
-                        docker push ${IMAGE_URI}:${BUILD_NUMBER}
-                        docker push ${IMAGE_URI}:latest
-                    """
-                }
-            }
-        }
-
-        stage('Deploy to ECS') {
-            steps {
-                script {
-                    echo '🚀 Deploying latest image to ECS service...'
-                    sh """
-                        aws ecs update-service \
-                          --cluster newcia2-cluster \
-                          --service newcia2-service \
-                          --force-new-deployment \
-                          --region ${AWS_REGION}
-                    """
-                }
+                sh '''
+                    echo "Running new container..."
+                    docker run -d -p 3000:3000 --name $APP_NAME $APP_NAME:$IMAGE_TAG
+                '''
             }
         }
     }
 
     post {
         success {
-            echo '✅ Pipeline executed successfully! Deployed latest image to AWS ECS.'
+            echo "✅ Deployment completed successfully!"
         }
         failure {
-            echo '❌ Pipeline failed. Check Jenkins logs.'
+            echo "❌ Build or deployment failed!"
         }
     }
 }

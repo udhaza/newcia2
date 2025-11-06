@@ -1,0 +1,22 @@
+{
+  "name": "newcia2",
+  "version": "1.0.0",
+  "description": "A simple Node.js app deployed via Jenkins CI/CD on AWS ECS using Docker",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"No test specified\" && exit 0"
+  },
+  "keywords": [
+    "nodejs",
+    "express",
+    "docker",
+    "jenkins",
+    "aws"
+  ],
+  "author": "Udhayam",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
